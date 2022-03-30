@@ -117,4 +117,10 @@ function sudo_add_recaptcha_to_checkout(){
   $site_key = empty($options['sudo_google_recaptcha_site_key']) ? '' : $options['sudo_google_recaptcha_site_key'];
 
   printf('<div class="g-recaptcha" data-sitekey="%s"></div>', $site_key);
+  
+  ?>
+  <script>
+    grecaptcha.render( document.querySelector('.g-recaptcha') );
+  </script>
+  <?php
 }
