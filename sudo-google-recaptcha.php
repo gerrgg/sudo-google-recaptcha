@@ -98,9 +98,9 @@ function sudo_options_page(  ) {
 			<h2>SUDO Google-Recaptcha</h2>
 
 			<?php
-			settings_fields( 'pluginPage' );
-			do_settings_sections( 'pluginPage' );
-			submit_button();
+        settings_fields( 'pluginPage' );
+        do_settings_sections( 'pluginPage' );
+        submit_button();
 			?>
 
 		</form>
@@ -116,7 +116,7 @@ function sudo_add_recaptcha_to_checkout(){
   $options = get_option( 'sudo_settings' );
   $site_key = empty($options['sudo_google_recaptcha_site_key']) ? '' : $options['sudo_google_recaptcha_site_key'];
 
-  printf('<div class="g-recaptcha" data-sitekey="%s"></div>', $site_key);
+  printf('<div class="g-recaptcha" data-callback="handleButtonState" data-sitekey="%s"></div>', $site_key);
   
   ?>
   <script>
