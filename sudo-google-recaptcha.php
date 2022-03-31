@@ -25,16 +25,18 @@ class SudoGoogleRecaptcha{
 		// add callback when recaptcha is entered 
 		add_action( 'wp_body_open', array($this, 'sudo_at_callback_to_body') );
 	
-		// add recaptcha validation to checkout
-		add_action( 'woocommerce_checkout_process', array($this, 'sudo_validate_recaptcha'));
-		
 	
 		// add recaptcha form to checkout
+		add_action( 'woocommerce_after_order_notes', array($this, 'sudo_grecaptcha_input_html') );
 		add_action( 'woocommerce_review_order_before_submit', array($this, 'sudo_add_recaptcha_to_checkout'), 10);
 	
 		// ajax to verify
 		add_action('wp_ajax_sudo_verify_grecaptcha', array($this, 'sudo_verify_grecaptcha') );
 		add_action('wp_ajax_nopriv_sudo_verify_grecaptcha', array($this, 'sudo_verify_grecaptcha') );
+
+
+		add_action( 'woocommerce_after_checkout_validation', array($this, 'sudo_woocommerce_validate_recaptcha'), 10, 2);
+
 	}
 
 	public function sudo_add_admin_menu(  ) { 
@@ -120,17 +122,18 @@ class SudoGoogleRecaptcha{
 	public function sudo_at_callback_to_body(){
 		?>
 		<script type="text/javascript">
-			var onloadCallback = function(token) {
+			var onloadCallback = function(token = false) {
 				var ajaxurl = "<?php echo admin_url('admin-ajax.php'); ?>";
-	
-				jQuery.ajax({
-					url: ajaxurl,
-					data: {
-							action: 'sudo_verify_grecaptcha',
-							token
-					},
-					type: 'POST'
-			});
+				const field = document.querySelector('#grecaptcha_response_field');
+				field.setAttribute('token', token);
+				// jQuery.ajax({
+				// 	url: ajaxurl,
+				// 	data: {
+				// 			action: 'sudo_verify_grecaptcha',
+				// 			token
+				// 	},
+				// 	type: 'POST'
+				// });
 			};
 		</script>
 		<script src="https://www.google.com/recaptcha/api.js?onload=onloadCallback&render=explicit"
@@ -145,7 +148,6 @@ class SudoGoogleRecaptcha{
 		$options = get_option( 'sudo_settings' );
 		$site_key = empty($options['sudo_google_recaptcha_site_key']) ? '' : $options['sudo_google_recaptcha_site_key'];
 	
-		printf('<div class="g-recaptcha-response">%s</div>', $this->sudo_grecaptcha_status);
 		printf('<div class="g-recaptcha" data-callback="onloadCallback" data-sitekey="%s"></div>', $site_key);
 		
 		?>
@@ -181,7 +183,6 @@ class SudoGoogleRecaptcha{
 			$data = json_decode($body);
 	
 			if( $data->success ){
-				// remove_action( 'woocommerce_before_checkout_process', array($this, 'sudo_validate_recaptcha'));
 				// Find how we can pass this information to the validation message
 			}
 
@@ -190,10 +191,43 @@ class SudoGoogleRecaptcha{
 	
 		die();
 	}
+
+
+	public function sudo_grecaptcha_input_html($checkout){
+		// woocommerce_form_field( 'grecaptcha_response', array(
+		// 	'type'	=> 'hidden',
+		// 	'class'	=> array('sudo-grecaptcha-response'),
+		// 	), $checkout->get_value( 'sudo-grecaptcha-response' ) );
+	}
 	
 	
-	public function sudo_validate_recaptcha(){
-		if ( empty($this->sudo_grecaptcha_status) ){
+	public function sudo_woocommerce_validate_recaptcha($fields, $errors){
+
+		$token = $_POST['g-recaptcha-response'];
+
+		$url = 'https://www.google.com/recaptcha/api/siteverify';
+	
+		$options = get_option( 'sudo_settings' );
+	
+		$secret = empty($options['sudo_google_recaptcha_secret_key']) ? '' : $options['sudo_google_recaptcha_secret_key'];
+	
+		$body = sprintf('secret=%s&response=%s', $secret, $response);
+	
+		if( $token ){
+			$response = wp_remote_post($url, [
+				'body' => $body,
+				'headers'     => [
+					"Content-Type" => "application/x-www-form-urlencoded"
+				],
+			]);
+	
+			
+			$body = stripslashes($response['body']);
+			$data = json_decode($body);
+
+		}
+
+		if( ! $data->success ){
 			wc_add_notice( 'Please fill in the captcha', 'error' );
 		}
 	}

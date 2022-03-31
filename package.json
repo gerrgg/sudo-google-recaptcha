@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "env": "wp-env"
+    "env": "export DOCKER_HOST=tcp://127.0.0.1:2376; wp-env start"
   },
   "keywords": [],
   "author": "",
