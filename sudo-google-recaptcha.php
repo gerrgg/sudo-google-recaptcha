@@ -2,48 +2,49 @@
 
 /**
  * Plugin Name: SUDO Google-Recaptcha
+ * Plugin URI: https://github.com/gerrgg/woocommerce-net-30-terms
+ * Description: Adds V2 google recaptcha support to woocommerce
+ * Version: 1.0
+ * Author: Greg Bastianelli   
+ * Author URI: http://gerrg.com/
+ * Text Domain: sudo
+ * Domain Path: /languages
+ * License: GNU General Public License v3.0
+ * License URI: http://www.gnu.org/licenses/gpl-3.0.html
  */
-
- /**
- * Registers a new options page under Settings.
- */
-
 
 class SudoGoogleRecaptcha{
 	private $sudo_grecaptcha_status;
+	private $sudo_site_key;
+	private $sudo_secret_key;
 
 	function __construct(){
+		$options = get_option( 'sudo_settings' );
+		$this->sudo_site_key = empty($options['sudo_google_recaptcha_site_key']) ? '' : $options['sudo_google_recaptcha_site_key'];
+		$this->sudo_secret_key = empty($options['sudo_google_recaptcha_secret_key']) ? '' : $options['sudo_google_recaptcha_secret_key'];
 		$this->sudo_grecaptcha_status = false;
 
-		// admin
+		// setup options page
 		add_action( 'admin_menu', array($this, 'sudo_add_admin_menu') );
 		add_action( 'admin_init', array($this, 'sudo_settings_init') );
 	
-		// test
-		// add_action('wp_body_open', array($this, 'sudo_test'));
-	
-		// add callback when recaptcha is entered 
+		// add callback for recaptcha 
 		add_action( 'wp_body_open', array($this, 'sudo_at_callback_to_body') );
 	
-	
 		// add recaptcha form to checkout
-		add_action( 'woocommerce_after_order_notes', array($this, 'sudo_grecaptcha_input_html') );
 		add_action( 'woocommerce_review_order_before_submit', array($this, 'sudo_add_recaptcha_to_checkout'), 10);
 	
-		// ajax to verify
-		add_action('wp_ajax_sudo_verify_grecaptcha', array($this, 'sudo_verify_grecaptcha') );
-		add_action('wp_ajax_nopriv_sudo_verify_grecaptcha', array($this, 'sudo_verify_grecaptcha') );
-
-
+		// validate recaptcha on checkout
 		add_action( 'woocommerce_after_checkout_validation', array($this, 'sudo_woocommerce_validate_recaptcha'), 10, 2);
 
 	}
 
+	// Add options page
 	public function sudo_add_admin_menu(  ) { 
 		add_options_page( 'SUDO Google-Recaptcha', 'SUDO Google-Recaptcha', 'manage_options', 'sudo_google-recaptcha', array($this, 'sudo_options_page') );
 	}
 	
-	
+	// init options
 	public function sudo_settings_init(  ) { 
 	
 		register_setting( 'pluginPage', 'sudo_settings' );
@@ -74,24 +75,16 @@ class SudoGoogleRecaptcha{
 	
 	
 	public function sudo_google_recaptcha_site_key_render(  ) { 
-	
-		$options = get_option( 'sudo_settings' );
-		$value = empty($options['sudo_google_recaptcha_site_key']) ? '' : $options['sudo_google_recaptcha_site_key'];
 		?>
-		<input type='text' name='sudo_settings[sudo_google_recaptcha_site_key]' value='<?= $value ?>'>
+		<input type='text' name='sudo_settings[sudo_google_recaptcha_site_key]' value='<?= $this->sudo_site_key  ?>'>
 		<?php
-	
 	}
 	
 	
 	public function sudo_google_recaptcha_secret_key_render(  ) { 
-	
-		$options = get_option( 'sudo_settings' );
-		$value = empty($options['sudo_google_recaptcha_secret_key']) ? '' : $options['sudo_google_recaptcha_secret_key'];
 		?>
-		<input type='text' name='sudo_settings[sudo_google_recaptcha_secret_key]' value='<?= $value ?>'>
+		<input type='text' name='sudo_settings[sudo_google_recaptcha_secret_key]' value='<?= $this->sudo_secret_key ?>'>
 		<?php
-	
 	}
 	
 	
@@ -101,42 +94,23 @@ class SudoGoogleRecaptcha{
 	
 	
 	public function sudo_options_page(  ) { 
-	
 			?>
 			<form action='options.php' method='post'>
-	
 				<h2>SUDO Google-Recaptcha</h2>
-	
 				<?php
 					settings_fields( 'pluginPage' );
 					do_settings_sections( 'pluginPage' );
 					submit_button();
 				?>
-	
 			</form>
 			<?php
 	
 	}
 	
-	
+	// Adds callback and script to DOM
 	public function sudo_at_callback_to_body(){
 		?>
-		<script type="text/javascript">
-			var onloadCallback = function(token = false) {
-				var ajaxurl = "<?php echo admin_url('admin-ajax.php'); ?>";
-				const field = document.querySelector('#grecaptcha_response_field');
-				field.setAttribute('token', token);
-				// jQuery.ajax({
-				// 	url: ajaxurl,
-				// 	data: {
-				// 			action: 'sudo_verify_grecaptcha',
-				// 			token
-				// 	},
-				// 	type: 'POST'
-				// });
-			};
-		</script>
-		<script src="https://www.google.com/recaptcha/api.js?onload=onloadCallback&render=explicit"
+		<script src="https://www.google.com/recaptcha/api.js"
 			async defer>
 		</script>
 		<?php
@@ -145,11 +119,7 @@ class SudoGoogleRecaptcha{
 	
 	 
 	public function sudo_add_recaptcha_to_checkout(){
-		$options = get_option( 'sudo_settings' );
-		$site_key = empty($options['sudo_google_recaptcha_site_key']) ? '' : $options['sudo_google_recaptcha_site_key'];
-	
-		printf('<div class="g-recaptcha" data-callback="onloadCallback" data-sitekey="%s"></div>', $site_key);
-		
+		printf('<div class="g-recaptcha" data-callback="onloadCallback" data-sitekey="%s"></div>', $this->sudo_site_key);
 		?>
 		<script>
 			grecaptcha.render( document.querySelector('.g-recaptcha') );
@@ -157,62 +127,16 @@ class SudoGoogleRecaptcha{
 		<?php
 	}
 	
-	
-	
-	public function sudo_verify_grecaptcha(){
-		$token = isset($_POST['token']) ? $_POST['token'] : false;
-	
-		$url = 'https://www.google.com/recaptcha/api/siteverify';
-	
-		$options = get_option( 'sudo_settings' );
-	
-		$secret = empty($options['sudo_google_recaptcha_secret_key']) ? '' : $options['sudo_google_recaptcha_secret_key'];
-	
-		$body = sprintf('secret=%s&response=%s', $secret, $response);
-	
-		if( $token ){
-			$response = wp_remote_post($url, [
-				'body' => $body,
-				'headers'     => [
-					"Content-Type" => "application/x-www-form-urlencoded"
-				],
-			]);
-	
-			
-			$body = stripslashes($response['body']);
-			$data = json_decode($body);
-	
-			if( $data->success ){
-				// Find how we can pass this information to the validation message
-			}
-
-	
-		}
-	
-		die();
-	}
-
-
-	public function sudo_grecaptcha_input_html($checkout){
-		// woocommerce_form_field( 'grecaptcha_response', array(
-		// 	'type'	=> 'hidden',
-		// 	'class'	=> array('sudo-grecaptcha-response'),
-		// 	), $checkout->get_value( 'sudo-grecaptcha-response' ) );
-	}
-	
-	
 	public function sudo_woocommerce_validate_recaptcha($fields, $errors){
-
+		// get the token from POST
 		$token = $_POST['g-recaptcha-response'];
 
 		$url = 'https://www.google.com/recaptcha/api/siteverify';
+
+		// setup request body
+		$body = sprintf('secret=%s&response=%s', $this->sudo_secret_key, $response);
 	
-		$options = get_option( 'sudo_settings' );
-	
-		$secret = empty($options['sudo_google_recaptcha_secret_key']) ? '' : $options['sudo_google_recaptcha_secret_key'];
-	
-		$body = sprintf('secret=%s&response=%s', $secret, $response);
-	
+		// send token to google to verify token
 		if( $token ){
 			$response = wp_remote_post($url, [
 				'body' => $body,
@@ -221,14 +145,15 @@ class SudoGoogleRecaptcha{
 				],
 			]);
 	
-			
+			// clean data
 			$body = stripslashes($response['body']);
 			$data = json_decode($body);
 
 		}
 
+		// if the token fails, cancel the checkout
 		if( ! $data->success ){
-			wc_add_notice( 'Please fill in the captcha', 'error' );
+			wc_add_notice( 'Please pass the recaptcha before checking out.', 'error' );
 		}
 	}
 	
