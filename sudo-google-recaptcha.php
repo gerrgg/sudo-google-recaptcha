@@ -4,7 +4,7 @@
  * Plugin Name: SUDO Google-Recaptcha
  * Plugin URI: https://github.com/gerrgg/woocommerce-net-30-terms
  * Description: Adds V2 google recaptcha support to woocommerce
- * Version: 1.0
+ * Version: 1.1
  * Author: Greg Bastianelli   
  * Author URI: http://gerrg.com/
  * Text Domain: sudo
@@ -14,22 +14,22 @@
  */
 
 class SudoGoogleRecaptcha{
-	private $sudo_grecaptcha_status;
 	private $sudo_site_key;
 	private $sudo_secret_key;
+	private $debug = false;
 
 	function __construct(){
 		$options = get_option( 'sudo_settings' );
 		$this->sudo_site_key = empty($options['sudo_google_recaptcha_site_key']) ? '' : $options['sudo_google_recaptcha_site_key'];
 		$this->sudo_secret_key = empty($options['sudo_google_recaptcha_secret_key']) ? '' : $options['sudo_google_recaptcha_secret_key'];
-		$this->sudo_grecaptcha_status = false;
+		$this->debug = empty($options['sudo_google_recaptcha_debug']) ? '' : $options['sudo_google_recaptcha_secret_key'];
 
 		// setup options page
 		add_action( 'admin_menu', array($this, 'sudo_add_admin_menu') );
 		add_action( 'admin_init', array($this, 'sudo_settings_init') );
 	
 		// add callback for recaptcha 
-		add_action( 'wp_body_open', array($this, 'sudo_at_callback_to_body') );
+		add_action( 'wp_head', array($this, 'sudo_at_callback_to_body') );
 	
 		// add recaptcha form to checkout
 		add_action( 'woocommerce_review_order_before_submit', array($this, 'sudo_add_recaptcha_to_checkout'), 10);
@@ -71,6 +71,14 @@ class SudoGoogleRecaptcha{
 			'pluginPage', 
 			'sudo_pluginPage_section' 
 		);
+
+		add_settings_field( 
+			'sudo_google_recaptcha_debug', 
+			__( 'Debug', 'sudo' ), 
+			array($this, 'sudo_google_recaptcha_debug_render'), 
+			'pluginPage', 
+			'sudo_pluginPage_section' 
+		);
 	}
 	
 	
@@ -87,6 +95,11 @@ class SudoGoogleRecaptcha{
 		<?php
 	}
 	
+	public function sudo_google_recaptcha_debug_render(  ) { 
+		?>
+		<input type='checkbox' value="1" name='sudo_settings[sudo_google_recaptcha_debug]' <?= $this->debug ? 'checked' : '' ?>>
+		<?php
+	}
 	
 	public function sudo_settings_section_callback(  ) { 
 		echo __( 'Find/create your recaptcha keys here: <a href="https://www.google.com/recaptcha/admin">https://www.google.com/recaptcha/admin</a>', 'sudo' );
@@ -119,7 +132,7 @@ class SudoGoogleRecaptcha{
 	
 	 
 	public function sudo_add_recaptcha_to_checkout(){
-		printf('<div class="g-recaptcha" data-callback="onloadCallback" data-sitekey="%s"></div>', $this->sudo_site_key);
+		printf('<div class="g-recaptcha" data-sitekey="%s"></div>', $this->sudo_site_key);
 		?>
 		<script>
 			grecaptcha.render( document.querySelector('.g-recaptcha') );
@@ -153,7 +166,15 @@ class SudoGoogleRecaptcha{
 
 		// if the token fails, cancel the checkout
 		if( ! $data->success ){
-			wc_add_notice( 'Please pass the recaptcha before checking out.', 'error' );
+			if( $this->debug ){
+				$html = "";
+				ob_start();
+				var_dump($data);
+				$html = ob_get_clean();
+				wc_add_notice( $html, 'error' );
+			} else {
+				wc_add_notice( 'Please pass the recaptcha before checking out.', 'error' );
+			}
 		}
 	}
 	
