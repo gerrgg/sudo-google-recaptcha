@@ -4,7 +4,7 @@
  * Plugin Name: SUDO Google-Recaptcha
  * Plugin URI: https://github.com/gerrgg/woocommerce-net-30-terms
  * Description: Adds V2 google recaptcha support to woocommerce
- * Version: 1.1
+ * Version: 1.2
  * Author: Greg Bastianelli   
  * Author URI: http://gerrg.com/
  * Text Domain: sudo
@@ -147,12 +147,12 @@ class SudoGoogleRecaptcha{
 		$url = 'https://www.google.com/recaptcha/api/siteverify';
 
 		// setup request body
-		$body = sprintf('secret=%s&response=%s', $this->sudo_secret_key, $response);
+		$request = sprintf('secret=%s&response=%s', $this->sudo_secret_key, $token);
 	
 		// send token to google to verify token
 		if( $token ){
 			$response = wp_remote_post($url, [
-				'body' => $body,
+				'body' => $request,
 				'headers'     => [
 					"Content-Type" => "application/x-www-form-urlencoded"
 				],
@@ -161,7 +161,6 @@ class SudoGoogleRecaptcha{
 			// clean data
 			$body = stripslashes($response['body']);
 			$data = json_decode($body);
-
 		}
 
 		// if the token fails, cancel the checkout
@@ -169,6 +168,7 @@ class SudoGoogleRecaptcha{
 			if( $this->debug ){
 				$html = "";
 				ob_start();
+        var_dump($token);
 				var_dump($data);
 				$html = ob_get_clean();
 				wc_add_notice( $html, 'error' );
@@ -181,6 +181,3 @@ class SudoGoogleRecaptcha{
 }
 
 new SudoGoogleRecaptcha; 
-
-
-
